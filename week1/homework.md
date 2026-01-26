@@ -54,8 +54,6 @@ docker compose down -v    # Stop and delete volumes (data)
  ✔ Container week1-pgdatabase-1          Started
 ```
 
-**Answer:** `postgres:5432`
-
 ---
 
 ## Preparation for Tasks 3-6
@@ -101,16 +99,6 @@ FROM green_taxi_trips
 WHERE trip_distance <= 1;
 ```
 
-**Result:**
-```
- count
--------
-  8009
-(1 row)
-```
-
-**Answer:** `8009`
-
 ---
 
 ## Task 4 - Longest Trip Distance (< 100 miles)
@@ -123,8 +111,6 @@ WHERE trip_distance < 100
 ORDER BY trip_distance DESC
 LIMIT 1;
 ```
-
-**Answer:** `2025-11-14`
 
 ---
 
@@ -140,8 +126,6 @@ GROUP BY z."Zone"
 ORDER BY total DESC
 LIMIT 1;
 ```
-
-**Answer:** `East Harlem North`
 
 ---
 
@@ -159,8 +143,6 @@ ORDER BY max_tip DESC
 LIMIT 1;
 ```
 
-**Answer:** `Yorkville West`
-
 ---
 
 ## Task 7 - Terraform Workflow
@@ -170,5 +152,3 @@ LIMIT 1;
 | 1 | `terraform init` | Downloads provider plugins, initializes backend |
 | 2 | `terraform apply -auto-approve` | Plans and applies changes (skips confirmation) |
 | 3 | `terraform destroy` | Removes all managed resources |
-
-**Answer:** `terraform init, terraform apply -auto-approve, terraform destroy`
