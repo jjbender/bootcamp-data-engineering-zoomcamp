@@ -1,0 +1,9 @@
+*.DS_store
+
+*.csv
+*.parquet
+week1/ny_taxi_postgres_data/*
+week1/local/*
+week1/terraform/
+week1/data_pgadmin
+claude
