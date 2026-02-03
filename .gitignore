@@ -1,6 +1,7 @@
 *.DS_store
 
 *.csv
+*.csv.gz
 *.parquet
 week1/ny_taxi_postgres_data/*
 week1/local/*

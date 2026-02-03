@@ -1,0 +1,75 @@
+id: green_taxi_ingest
+namespace: zoomcamp
+description: Ingest green taxi data into PostgreSQL
+
+inputs:
+  - id: year
+    type: STRING
+    defaults: "2021"
+  - id: month
+    type: STRING
+    defaults: "01"
+
+tasks:
+  - id: extract
+    type: io.kestra.plugin.core.http.Download
+    uri: "https://github.com/DataTalksClub/nyc-tlc-data/releases/download/green/green_tripdata_{{ inputs.year }}-{{ inputs.month }}.csv.gz"
+
+  - id: decompress
+    type: io.kestra.plugin.compress.ArchiveDecompress
+    algorithm: GZIP
+    from: "{{ outputs.extract.uri }}"
+
+  - id: create_table
+    type: io.kestra.plugin.jdbc.postgresql.Query
+    url: jdbc:postgresql://postgres:5432/ny_taxi
+    username: root
+    password: root
+    sql: |
+      CREATE TABLE IF NOT EXISTS green_taxi_trips (
+        VendorID INTEGER,
+        lpep_pickup_datetime TIMESTAMP,
+        lpep_dropoff_datetime TIMESTAMP,
+        store_and_fwd_flag TEXT,
+        RatecodeID INTEGER,
+        PULocationID INTEGER,
+        DOLocationID INTEGER,
+        passenger_count INTEGER,
+        trip_distance DOUBLE PRECISION,
+        fare_amount DOUBLE PRECISION,
+        extra DOUBLE PRECISION,
+        mta_tax DOUBLE PRECISION,
+        tip_amount DOUBLE PRECISION,
+        tolls_amount DOUBLE PRECISION,
+        ehail_fee DOUBLE PRECISION,
+        improvement_surcharge DOUBLE PRECISION,
+        total_amount DOUBLE PRECISION,
+        payment_type INTEGER,
+        trip_type INTEGER,
+        congestion_surcharge DOUBLE PRECISION
+      );
+
+  - id: load_data
+    type: io.kestra.plugin.jdbc.postgresql.CopyIn
+    url: jdbc:postgresql://postgres:5432/ny_taxi
+    username: root
+    password: root
+    from: "{{ outputs.decompress.files | first }}"
+    table: green_taxi_trips
+    format: CSV
+    header: true
+    delimiter: ","
+
+  - id: row_count
+    type: io.kestra.plugin.jdbc.postgresql.Query
+    url: jdbc:postgresql://postgres:5432/ny_taxi
+    username: root
+    password: root
+    sql: |
+      SELECT COUNT(*) as total_rows FROM green_taxi_trips;
+    fetchType: FETCH_ONE
+
+outputs:
+  - id: rows_loaded
+    type: STRING
+    value: "{{ outputs.row_count.row.total_rows }}"

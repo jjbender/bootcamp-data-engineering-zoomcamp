@@ -1,0 +1,96 @@
+id: taxi_backfill_foreach
+namespace: zoomcamp
+description: Backfill taxi data using ForEach - loops over Year-Month and taxi-type combinations
+
+tasks:
+  - id: backfill_all
+    type: io.kestra.plugin.core.flow.ForEach
+    values:
+      - "green-2021-01"
+      - "green-2021-02"
+      - "green-2021-03"
+      - "green-2021-04"
+      - "green-2021-05"
+      - "green-2021-06"
+      - "green-2021-07"
+      - "yellow-2021-01"
+      - "yellow-2021-02"
+      - "yellow-2021-03"
+      - "yellow-2021-04"
+      - "yellow-2021-05"
+      - "yellow-2021-06"
+      - "yellow-2021-07"
+    concurrencyLimit: 1
+    tasks:
+      - id: extract_params
+        type: io.kestra.plugin.core.debug.Return
+        format: |
+          taxi_type: {{ taskrun.value | split('-') | first }}
+          year_month: {{ taskrun.value | split('-') | slice(1) | join('-') }}
+
+      - id: download_file
+        type: io.kestra.plugin.core.http.Download
+        uri: "https://github.com/DataTalksClub/nyc-tlc-data/releases/download/{{ taskrun.value | split('-') | first }}/{{ taskrun.value | split('-') | first }}_tripdata_{{ taskrun.value | split('-') | slice(1) | join('-') }}.csv.gz"
+
+      - id: create_table
+        type: io.kestra.plugin.jdbc.postgresql.Query
+        url: jdbc:postgresql://postgres:5432/ny_taxi
+        username: root
+        password: root
+        sql: |
+          CREATE TABLE IF NOT EXISTS {{ taskrun.value | split('-') | first }}_taxi_trips (
+            VendorID INTEGER,
+            lpep_pickup_datetime TIMESTAMP,
+            lpep_dropoff_datetime TIMESTAMP,
+            store_and_fwd_flag TEXT,
+            RatecodeID INTEGER,
+            PULocationID INTEGER,
+            DOLocationID INTEGER,
+            passenger_count INTEGER,
+            trip_distance DOUBLE PRECISION,
+            fare_amount DOUBLE PRECISION,
+            extra DOUBLE PRECISION,
+            mta_tax DOUBLE PRECISION,
+            tip_amount DOUBLE PRECISION,
+            tolls_amount DOUBLE PRECISION,
+            ehail_fee DOUBLE PRECISION,
+            improvement_surcharge DOUBLE PRECISION,
+            total_amount DOUBLE PRECISION,
+            payment_type INTEGER,
+            trip_type INTEGER,
+            congestion_surcharge DOUBLE PRECISION
+          );
+
+      - id: load_data
+        type: io.kestra.plugin.jdbc.postgresql.CopyIn
+        url: jdbc:postgresql://postgres:5432/ny_taxi
+        username: root
+        password: root
+        from: "{{ outputs.download_file.uri }}"
+        table: "{{ taskrun.value | split('-') | first }}_taxi_trips"
+        format: CSV
+        header: true
+        delimiter: ","
+
+      - id: log_progress
+        type: io.kestra.plugin.core.log.Log
+        message: "Loaded {{ taskrun.value }} successfully"
+
+  - id: final_counts
+    type: io.kestra.plugin.jdbc.postgresql.Query
+    url: jdbc:postgresql://postgres:5432/ny_taxi
+    username: root
+    password: root
+    sql: |
+      SELECT
+        (SELECT COUNT(*) FROM green_taxi_trips) as green_rows,
+        (SELECT COUNT(*) FROM yellow_taxi_trips) as yellow_rows;
+    fetchType: FETCH_ONE
+
+outputs:
+  - id: green_total
+    type: STRING
+    value: "{{ outputs.final_counts.row.green_rows }}"
+  - id: yellow_total
+    type: STRING
+    value: "{{ outputs.final_counts.row.yellow_rows }}"

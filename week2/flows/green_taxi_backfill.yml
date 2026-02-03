@@ -1,0 +1,36 @@
+id: green_taxi_backfill
+namespace: zoomcamp
+description: Backfill green taxi data for 2021 (Jan-Jul)
+
+inputs:
+  - id: year
+    type: STRING
+    defaults: "2021"
+
+tasks:
+  - id: backfill_months
+    type: io.kestra.plugin.core.flow.ForEach
+    values: ["01", "02", "03", "04", "05", "06", "07"]
+    tasks:
+      - id: ingest_month
+        type: io.kestra.plugin.core.flow.Subflow
+        namespace: zoomcamp
+        flowId: green_taxi_ingest
+        inputs:
+          year: "{{ inputs.year }}"
+          month: "{{ taskrun.value }}"
+        wait: true
+
+  - id: final_count
+    type: io.kestra.plugin.jdbc.postgresql.Query
+    url: jdbc:postgresql://postgres:5432/ny_taxi
+    username: root
+    password: root
+    sql: |
+      SELECT COUNT(*) as total_rows FROM green_taxi_trips;
+    fetchType: FETCH_ONE
+
+outputs:
+  - id: total_rows
+    type: STRING
+    value: "{{ outputs.final_count.row.total_rows }}"

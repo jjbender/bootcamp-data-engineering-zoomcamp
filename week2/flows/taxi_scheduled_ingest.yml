@@ -1,0 +1,98 @@
+id: taxi_scheduled_ingest
+namespace: zoomcamp
+description: Scheduled flow for taxi data ingestion with backfill support
+
+inputs:
+  - id: taxi_type
+    type: SELECT
+    displayName: Taxi Type
+    values:
+      - green
+      - yellow
+    defaults: green
+
+  - id: year
+    type: STRING
+    displayName: Year
+    defaults: "2021"
+
+  - id: month
+    type: SELECT
+    displayName: Month
+    values:
+      - "01"
+      - "02"
+      - "03"
+      - "04"
+      - "05"
+      - "06"
+      - "07"
+      - "08"
+      - "09"
+      - "10"
+      - "11"
+      - "12"
+    defaults: "01"
+
+variables:
+  file_url: "https://github.com/DataTalksClub/nyc-tlc-data/releases/download/{{ inputs.taxi_type }}/{{ inputs.taxi_type }}_tripdata_{{ inputs.year }}-{{ inputs.month }}.csv.gz"
+  table_name: "{{ inputs.taxi_type }}_taxi_trips"
+
+tasks:
+  - id: extract
+    type: io.kestra.plugin.core.http.Download
+    uri: "{{ vars.file_url }}"
+
+  - id: create_table
+    type: io.kestra.plugin.jdbc.postgresql.Query
+    url: jdbc:postgresql://postgres:5432/ny_taxi
+    username: root
+    password: root
+    sql: |
+      CREATE TABLE IF NOT EXISTS {{ vars.table_name }} (
+        VendorID INTEGER,
+        lpep_pickup_datetime TIMESTAMP,
+        lpep_dropoff_datetime TIMESTAMP,
+        store_and_fwd_flag TEXT,
+        RatecodeID INTEGER,
+        PULocationID INTEGER,
+        DOLocationID INTEGER,
+        passenger_count INTEGER,
+        trip_distance DOUBLE PRECISION,
+        fare_amount DOUBLE PRECISION,
+        extra DOUBLE PRECISION,
+        mta_tax DOUBLE PRECISION,
+        tip_amount DOUBLE PRECISION,
+        tolls_amount DOUBLE PRECISION,
+        ehail_fee DOUBLE PRECISION,
+        improvement_surcharge DOUBLE PRECISION,
+        total_amount DOUBLE PRECISION,
+        payment_type INTEGER,
+        trip_type INTEGER,
+        congestion_surcharge DOUBLE PRECISION
+      );
+
+  - id: load_data
+    type: io.kestra.plugin.jdbc.postgresql.CopyIn
+    url: jdbc:postgresql://postgres:5432/ny_taxi
+    username: root
+    password: root
+    from: "{{ outputs.extract.uri }}"
+    table: "{{ vars.table_name }}"
+    format: CSV
+    header: true
+    delimiter: ","
+
+  - id: row_count
+    type: io.kestra.plugin.jdbc.postgresql.Query
+    url: jdbc:postgresql://postgres:5432/ny_taxi
+    username: root
+    password: root
+    sql: |
+      SELECT COUNT(*) as total_rows FROM {{ vars.table_name }};
+    fetchType: FETCH_ONE
+
+outputs:
+  - id: rows_loaded
+    type: STRING
+    value: "{{ outputs.row_count.row.total_rows }}"
