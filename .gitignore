@@ -8,3 +8,5 @@ week1/local/*
 week1/terraform/
 week1/data_pgadmin
 claude
+
+.bruin.yml
