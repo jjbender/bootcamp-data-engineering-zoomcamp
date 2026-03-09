@@ -1,0 +1,11 @@
+# Data files
+*.parquet
+*.csv
+
+# Spark output
+output/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
